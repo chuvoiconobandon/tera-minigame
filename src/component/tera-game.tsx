@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 
 const checklistItems: string[] = [
@@ -32,13 +32,23 @@ const TeraCheckMiniGame: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null); // ✅ Thêm
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   const DO_POST_URL: string = "https://script.google.com/macros/s/AKfycbx4hsmwFKZD5FDnNNM1vqpWJsAZa-3srvt66F-mKEctqB59wqEFTHk2SpGjfK8igmg-Yg/exec";
   const DO_GET_URL: string = "https://script.google.com/macros/s/AKfycbyl-Pn1LE_nJTY4jTBCOt0P6pYJByTF--WbjHRecOBNywMqdspyBwJXJbhE7WRUNVDfzg/exec";
 
   const handleCheck = (item: string): void => {
     setChecked((prev) =>
-        prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
     );
   };
 
@@ -46,7 +56,7 @@ const TeraCheckMiniGame: React.FC = () => {
     try {
       await fetch(DO_POST_URL, {
         method: "POST",
-        mode: "no-cors", // Google Apps Script yêu cầu no-cors
+        mode: "no-cors",
         headers: {
           "Content-Type": "application/json",
         },
@@ -73,6 +83,7 @@ const TeraCheckMiniGame: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setSuccess(null); // ✅ Reset thông báo cũ
 
     const number: number = Math.floor(1000 + Math.random() * 9000);
     const newParticipant: Participant = {
@@ -84,14 +95,13 @@ const TeraCheckMiniGame: React.FC = () => {
     };
 
     try {
-      // Lưu vào Google Sheet trước
       await saveToGoogleSheet(newParticipant);
-      // Chỉ cập nhật state sau khi lưu thành công
       setLuckyNumber(number);
       setParticipants((prev) => [...prev, newParticipant]);
-      setName("");
-      setPosition("");
-      setChecked([]);
+      // setName("");
+      // setPosition("");
+      // setChecked([]);
+      setSuccess("✅ Đã lưu thành công! Chúc bạn may mắn 🎉"); // ✅ Thêm
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -105,7 +115,6 @@ const TeraCheckMiniGame: React.FC = () => {
       if (!response.ok) throw new Error("Lỗi khi tải Google Sheet");
       const data: Participant[] = await response.json();
 
-      // Chuyển dữ liệu thành file Excel
       const worksheet = XLSX.utils.json_to_sheet(data);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Participants");
@@ -123,82 +132,86 @@ const TeraCheckMiniGame: React.FC = () => {
   // };
 
   return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-10">
-          <h2 className="text-3xl font-bold text-center text-blue-600">TERA-CHECK 🎉</h2>
-          <p className="text-center text-gray-600 mb-6">Sinh nhật 4 tuổi đã làm gì?</p>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-10">
+        <h2 className="text-3xl font-bold text-center text-blue-600">TERA-CHECK 🎉</h2>
+        <p className="text-center text-gray-600 mb-6">Sinh nhật 4 tuổi đã làm gì?</p>
 
-          {error && (
-              <div className="text-center text-red-600 mb-4">{error}</div>
-          )}
+        {error && (
+          <div className="text-center text-red-600 mb-4">{error}</div>
+        )}
 
-          <div className="space-y-4">
-            <input
-                type="text"
-                placeholder="Họ tên"
-                value={name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+        {success && (
+          <div className="text-center text-green-600 mb-4">{success}</div>
+        )}
 
-            <input
-                type="text"
-                placeholder="Vị trí công việc"
-                value={position}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPosition(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Họ tên"
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+
+          <input
+            type="text"
+            placeholder="Vị trí công việc"
+            value={position}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPosition(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
+          {checklistItems.map((item, index) => (
+            <label
+              key={index}
+              className="flex items-start gap-2 text-sm text-gray-700"
+            >
+              <input
+                type="checkbox"
+                checked={checked.includes(item)}
+                onChange={() => handleCheck(item)}
+                className="mt-1"
+              />
+              <p className="text-left">{item}</p>
+            </label>
+          ))}
+        </div>
+
+        <button
+          onClick={handleGenerateLuckyNumber}
+          disabled={isLoading}
+          className={`w-full mt-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          {isLoading ? "Đang xử lý..." : "🌟 Quay số may mắn"}
+        </button>
+
+        {luckyNumber && (
+          <div className="text-center text-2xl font-bold text-green-600 mt-4">
+            ✨ Số may mắn của bạn là: {luckyNumber}
           </div>
+        )}
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
-            {checklistItems.map((item, index) => (
-                <label
-                    key={index}
-                    className="flex items-start gap-2 text-sm text-gray-700"
-                >
-                  <input
-                      type="checkbox"
-                      checked={checked.includes(item)}
-                      onChange={() => handleCheck(item)}
-                      className="mt-1"
-                  />
-                  <p className="text-left">{item}</p>
-                </label>
-            ))}
-          </div>
-
-          <button
-              onClick={handleGenerateLuckyNumber}
-              disabled={isLoading}
-              className={`w-full mt-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            {isLoading ? "Đang xử lý..." : "🌟 Quay số may mắn"}
-          </button>
-
-          {luckyNumber && (
-              <div className="text-center text-2xl font-bold text-green-600 mt-4">
-                🏻✨ Số may mắn của bạn là: {luckyNumber}
-              </div>
-          )}
-
-          {participants.length > 0 && (
-              <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                {/*<button*/}
+        {participants.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-4 mt-4">
+            {/*<button*/}
                 {/*    onClick={downloadLocalExcel}*/}
                 {/*    className="w-full py-3 bg-gray-500 text-white font-semibold rounded-xl hover:bg-gray-600 transition"*/}
                 {/*>*/}
                 {/*  📅 Tải danh sách cục bộ (.xlsx)*/}
                 {/*</button>*/}
-                <button
-                    onClick={downloadGoogleSheet}
-                    className="w-full py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition"
-                >
-                  📊 Tải từ Google Sheet (.xlsx)
-                </button>
-              </div>
-          )}
-        </div>
+            <button
+              onClick={downloadGoogleSheet}
+              className="w-full py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition"
+            >
+              📊 Tải từ Google Sheet (.xlsx)
+            </button>
+          </div>
+        )}
       </div>
+    </div>
   );
 };
 
